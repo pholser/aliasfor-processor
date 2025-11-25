@@ -20,7 +20,6 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,7 +74,7 @@ public class AliasForValidationProcessor extends AbstractProcessor {
     TypeElement aliasForElement =
       elementUtils.getTypeElement(FullyQualifiedClassNames.ALIAS_FOR);
     if (aliasForElement == null) {
-      // Spring not on the compile classpath for this module; nothing to do
+      // Spring not on the compilation classpath for this module; nothing to do
       return false;
     }
 
@@ -117,7 +116,7 @@ public class AliasForValidationProcessor extends AbstractProcessor {
 
     AnnotationAliasModel(TypeElement annoType, List<AliasDescriptor> aliases) {
       this.annoType = annoType;
-      this.aliases = Collections.unmodifiableList(new ArrayList<>(aliases));
+      this.aliases = List.copyOf(aliases);
     }
 
     TypeElement annotationType() {
@@ -144,8 +143,7 @@ public class AliasForValidationProcessor extends AbstractProcessor {
         messager.printMessage(
           Diagnostic.Kind.ERROR,
           "@AliasFor can only be used on annotation attribute methods",
-          el
-        );
+          el);
         continue;
       }
 
@@ -155,8 +153,7 @@ public class AliasForValidationProcessor extends AbstractProcessor {
         messager.printMessage(
           Diagnostic.Kind.ERROR,
           "@AliasFor used on a method not enclosed in an annotation type",
-          el
-        );
+          el);
         continue;
       }
 
@@ -164,8 +161,7 @@ public class AliasForValidationProcessor extends AbstractProcessor {
         messager.printMessage(
           Diagnostic.Kind.ERROR,
           "@AliasFor used on a method not enclosed in an annotation type",
-          el
-        );
+          el);
         continue;
       }
 
@@ -381,7 +377,10 @@ public class AliasForValidationProcessor extends AbstractProcessor {
     TypeElement potentialMeta) {
 
     for (AnnotationMirror mirror : anno.getAnnotationMirrors()) {
-      if (typeUtils.isSameType(mirror.getAnnotationType(), potentialMeta.asType())) {
+      if (typeUtils.isSameType(
+        mirror.getAnnotationType(),
+        potentialMeta.asType())) {
+
         return true;
       }
     }
