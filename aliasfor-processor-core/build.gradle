@@ -1,0 +1,20 @@
+plugins {
+  id 'java-library'
+}
+
+group = 'com.pholser.spring'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+  mavenCentral()
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.encoding = 'UTF-8'
+  options.release = 17
+}
+
+test {
+  useJUnitPlatform()
+}
+
