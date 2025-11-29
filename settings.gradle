@@ -2,3 +2,4 @@ rootProject.name = 'aliasfor-processor'
 
 include 'aliasfor-processor-core'
 include 'aliasfor-processor-tests'
+include 'annogami'
