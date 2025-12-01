@@ -1,4 +1,4 @@
-package com.pholser.annogami;
+package com.pholser.annogami.indirect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -7,13 +7,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.TypeVariable;
+import java.util.List;
 
-import static com.pholser.annogami.Presences.DIRECT;
+import static com.pholser.annogami.Presences.DIRECT_OR_INDIRECT;
 import static java.lang.annotation.ElementType.TYPE_PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DirectPresenceOnTypeVariableTest {
+class DirectOrIndirectPresenceOnTypeVariableTest {
   @Retention(RUNTIME) @Target(TYPE_PARAMETER) @interface TP {
     int value();
   }
@@ -26,14 +27,18 @@ class DirectPresenceOnTypeVariableTest {
     TypeVariable<Class<GenericClass>>[] typeVars =
       GenericClass.class.getTypeParameters();
 
-    TP tp = DIRECT.find(TP.class, typeVars[0]).orElseGet(Assertions::fail);
+    List<TP> tps = DIRECT_OR_INDIRECT.find(TP.class, typeVars[0]);
+    assertThat(tps).hasSize(1);
 
+    TP tp = tps.stream().findFirst().orElseGet(Assertions::fail);
     assertThat(tp.value()).isEqualTo(1);
   }
 
-  @Test void missesOnGenericDeclarationWhenAnnotationIsOnTypeParameter() {
+  @Test void missesOnGenericDeclarationItself() {
     GenericDeclaration decl = GenericClass.class;
 
-    DIRECT.find(TP.class, decl).ifPresent(AnnotationAssertions::falseFind);
+    List<TP> tps = DIRECT_OR_INDIRECT.find(TP.class, decl);
+
+    assertThat(tps).isEmpty();
   }
 }

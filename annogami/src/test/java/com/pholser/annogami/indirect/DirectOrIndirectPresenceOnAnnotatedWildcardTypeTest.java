@@ -1,4 +1,4 @@
-package com.pholser.annogami;
+package com.pholser.annogami.indirect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -7,15 +7,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.AnnotatedWildcardType;
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static com.pholser.annogami.Presences.DIRECT;
+import static com.pholser.annogami.Presences.DIRECT_OR_INDIRECT;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DirectPresenceOnAnnotatedWildcardTypeTest {
+class DirectOrIndirectPresenceOnAnnotatedWildcardTypeTest {
   @Retention(RUNTIME) @Target(TYPE_USE) @interface A {
     int value();
   }
@@ -29,19 +30,24 @@ class DirectPresenceOnAnnotatedWildcardTypeTest {
     Field f = WildCarder.class.getDeclaredField("withWildcard");
     AnnotatedParameterizedType paramType =
       (AnnotatedParameterizedType) f.getAnnotatedType();
-    AnnotatedType wildcard = paramType.getAnnotatedActualTypeArguments()[0];
+    AnnotatedType typeArg = paramType.getAnnotatedActualTypeArguments()[0];
+    AnnotatedWildcardType wildcard = (AnnotatedWildcardType) typeArg;
 
-    A a = DIRECT.find(A.class, wildcard).orElseGet(Assertions::fail);
+    List<A> as = DIRECT_OR_INDIRECT.find(A.class, wildcard);
+    assertThat(as).hasSize(1);
 
+    A a = as.stream().findFirst().orElseGet(Assertions::fail);
     assertThat(a.value()).isEqualTo(1);
   }
 
-  @Test void missesOnAnnotatedWildcardTypeNotDeclared() throws Exception {
+  @Test void missesOnUnannotatedWildcardType() throws Exception {
     Field f = WildCarder.class.getDeclaredField("plain");
     AnnotatedParameterizedType paramType =
       (AnnotatedParameterizedType) f.getAnnotatedType();
-    AnnotatedType arg = paramType.getAnnotatedActualTypeArguments()[0];
+    AnnotatedType typeArg = paramType.getAnnotatedActualTypeArguments()[0];
 
-    DIRECT.find(A.class, arg).ifPresent(AnnotationAssertions::falseFind);
+    List<A> as = DIRECT_OR_INDIRECT.find(A.class, typeArg);
+
+    assertThat(as).isEmpty();
   }
 }

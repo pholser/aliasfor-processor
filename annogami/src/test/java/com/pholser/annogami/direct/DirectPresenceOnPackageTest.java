@@ -1,5 +1,6 @@
-package com.pholser.annogami;
+package com.pholser.annogami.direct;
 
+import com.pholser.annogami.AnnotationAssertions;
 import com.pholser.annogami.pkg.A;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

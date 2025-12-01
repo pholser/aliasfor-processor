@@ -1,4 +1,4 @@
-package com.pholser.annogami;
+package com.pholser.annogami.indirect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -11,7 +11,7 @@ import static com.pholser.annogami.Presences.DIRECT_OR_INDIRECT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DirectOrIndirectPresenceOnFieldTest {
+class DirectOrIndirectPresenceOnConstructorTest {
   @Retention(RUNTIME) @interface A {
     int value();
   }
@@ -24,53 +24,54 @@ class DirectOrIndirectPresenceOnFieldTest {
     int value();
   }
 
-  static class FieldHaver {
-    @A(1) int a;
-    @B(2) @B(3) int manyBs;
-    int none;
+  static class CtorHaver {
+    @A(100) CtorHaver() {}
+    @B(200) @B(300) CtorHaver(int x) {}
+    CtorHaver(String s) {}
   }
 
   @Test void findsSingleNonRepeatable() throws Exception {
     List<A> as =
       DIRECT_OR_INDIRECT.find(
         A.class,
-        FieldHaver.class.getDeclaredField("a"));
+        CtorHaver.class.getDeclaredConstructor());
     assertThat(as).hasSize(1);
 
     A a = as.stream().findFirst().orElseGet(Assertions::fail);
-    assertThat(a.value()).isEqualTo(1);
+    assertThat(a.value()).isEqualTo(100);
   }
 
   @Test void missesNonDeclared() throws Exception {
     List<A> as =
       DIRECT_OR_INDIRECT.find(
         A.class,
-        FieldHaver.class.getDeclaredField("none"));
+        CtorHaver.class.getDeclaredConstructor(String.class));
 
     assertThat(as).isEmpty();
   }
 
-  @Test void findsRepeatable() throws Exception {
+  @Test void findsRepeatableAnnotations() throws Exception {
     List<B> bs =
       DIRECT_OR_INDIRECT.find(
         B.class,
-        FieldHaver.class.getDeclaredField("manyBs"));
+        CtorHaver.class.getDeclaredConstructor(int.class));
 
     assertThat(bs)
       .extracting(B::value)
-      .containsExactlyInAnyOrder(2, 3);
+      .containsExactlyInAnyOrder(200, 300);
   }
 
-  @Test void findsContainerAnnotationOfRepeatable() throws Exception {
+  @Test void findsContainerAnnotation() throws Exception {
     List<Bs> containers =
       DIRECT_OR_INDIRECT.find(
         Bs.class,
-        FieldHaver.class.getDeclaredField("manyBs"));
+        CtorHaver.class.getDeclaredConstructor(int.class));
+    assertThat(containers).hasSize(1);
 
     Bs bs = containers.stream().findFirst().orElseGet(Assertions::fail);
-    assertThat(containers).hasSize(1);
+
     assertThat(bs.value())
       .extracting(B::value)
-      .containsExactlyInAnyOrder(2, 3);
+      .containsExactlyInAnyOrder(200, 300);
   }
 }

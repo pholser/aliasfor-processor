@@ -1,5 +1,6 @@
-package com.pholser.annogami;
+package com.pholser.annogami.direct;
 
+import com.pholser.annogami.AnnotationAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,7 @@ import static com.pholser.annogami.Presences.DIRECT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DirectPresenceOnFieldTest {
+class DirectPresenceOnMethodTest {
   @Retention(RUNTIME) @interface A {
     int value();
   }
@@ -23,33 +24,33 @@ class DirectPresenceOnFieldTest {
     int value();
   }
 
-  static class FieldHaver {
-    @A(1) int a;
-    @B(2) @B(3) int manyBs;
-    int none;
+  static class MethodHaver {
+    @A(10) void m1() {}
+    @B(20) @B(30) void m2() {}
+    void m3() {}
   }
 
   @Test void findsDirectlyPresent() throws Exception {
     A a =
-      DIRECT.find(A.class, FieldHaver.class.getDeclaredField("a"))
+      DIRECT.find(A.class, MethodHaver.class.getDeclaredMethod("m1"))
         .orElseGet(Assertions::fail);
 
-    assertThat(a.value()).isEqualTo(1);
+    assertThat(a.value()).isEqualTo(10);
   }
 
-  @Test void missesNotDeclaredOnField() throws Exception {
-    DIRECT.find(A.class, FieldHaver.class.getDeclaredField("none"))
+  @Test void missesNotDeclared() throws Exception {
+    DIRECT.find(A.class, MethodHaver.class.getDeclaredMethod("m3"))
       .ifPresent(AnnotationAssertions::falseFind);
   }
 
   @Test void missesIndirectlyPresent() throws Exception {
-    DIRECT.find(B.class, FieldHaver.class.getDeclaredField("manyBs"))
+    DIRECT.find(B.class, MethodHaver.class.getDeclaredMethod("m2"))
       .ifPresent(AnnotationAssertions::falseFind);
   }
 
   @Test void findsContainerAnnotationOfIndirectlyPresent() throws Exception {
     Bs bs =
-      DIRECT.find(Bs.class, FieldHaver.class.getDeclaredField("manyBs"))
+      DIRECT.find(Bs.class, MethodHaver.class.getDeclaredMethod("m2"))
         .orElseGet(Assertions::fail);
 
     assertThat(bs.value()).hasSize(2);

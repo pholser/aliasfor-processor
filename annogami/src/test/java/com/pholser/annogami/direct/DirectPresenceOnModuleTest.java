@@ -1,5 +1,7 @@
-package com.pholser.annogami;
+package com.pholser.annogami.direct;
 
+import com.pholser.annogami.AnnotationAssertions;
+import com.pholser.annogami.ModuleMarker;
 import org.junit.jupiter.api.Test;
 
 import static com.pholser.annogami.Presences.DIRECT;

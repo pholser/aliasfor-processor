@@ -1,17 +1,17 @@
-package com.pholser.annogami;
+package com.pholser.annogami.direct;
 
+import com.pholser.annogami.AnnotationAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
-import java.lang.reflect.Parameter;
 
 import static com.pholser.annogami.Presences.DIRECT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class DirectPresenceOnParameterTest {
+class DirectPresenceOnFieldTest {
   @Retention(RUNTIME) @interface A {
     int value();
   }
@@ -24,42 +24,35 @@ class DirectPresenceOnParameterTest {
     int value();
   }
 
-  static class ParameterHolder {
-    void p1(@A(1000) int x) {}
-    void p2(@B(2000) @B(3000) int x) {}
-    void p3(int x) {}
+  static class FieldHaver {
+    @A(1) int a;
+    @B(2) @B(3) int manyBs;
+    int none;
   }
 
   @Test void findsDirectlyPresent() throws Exception {
     A a =
-      DIRECT.find(A.class, parameterOf("p1"))
+      DIRECT.find(A.class, FieldHaver.class.getDeclaredField("a"))
         .orElseGet(Assertions::fail);
 
-    assertThat(a.value()).isEqualTo(1000);
+    assertThat(a.value()).isEqualTo(1);
   }
 
-  @Test void missesNotDeclared() throws Exception {
-    DIRECT.find(A.class, parameterOf("p3"))
+  @Test void missesNotDeclaredOnField() throws Exception {
+    DIRECT.find(A.class, FieldHaver.class.getDeclaredField("none"))
       .ifPresent(AnnotationAssertions::falseFind);
   }
 
   @Test void missesIndirectlyPresent() throws Exception {
-    DIRECT.find(B.class, parameterOf("p2"))
+    DIRECT.find(B.class, FieldHaver.class.getDeclaredField("manyBs"))
       .ifPresent(AnnotationAssertions::falseFind);
   }
 
   @Test void findsContainerAnnotationOfIndirectlyPresent() throws Exception {
     Bs bs =
-      DIRECT.find(Bs.class, parameterOf("p2"))
+      DIRECT.find(Bs.class, FieldHaver.class.getDeclaredField("manyBs"))
         .orElseGet(Assertions::fail);
 
     assertThat(bs.value()).hasSize(2);
-  }
-
-  private static Parameter parameterOf(String methodName)
-    throws NoSuchMethodException {
-
-    return ParameterHolder.class.getDeclaredMethod(methodName, int.class)
-      .getParameters()[0];
   }
 }

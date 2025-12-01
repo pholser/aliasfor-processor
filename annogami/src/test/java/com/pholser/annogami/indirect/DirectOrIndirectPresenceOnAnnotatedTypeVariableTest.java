@@ -1,4 +1,4 @@
-package com.pholser.annogami;
+package com.pholser.annogami.indirect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
