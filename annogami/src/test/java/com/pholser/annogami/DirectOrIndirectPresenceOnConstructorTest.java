@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
-import java.lang.reflect.Constructor;
 import java.util.List;
 
 import static com.pholser.annogami.Presences.DIRECT_OR_INDIRECT;
