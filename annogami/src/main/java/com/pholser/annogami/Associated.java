@@ -2,7 +2,6 @@ package com.pholser.annogami;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
-import java.util.Arrays;
 import java.util.List;
 
 public final class Associated {
@@ -13,6 +12,6 @@ public final class Associated {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return Arrays.asList(target.getAnnotationsByType(annoType));
+    return List.of(target.getAnnotationsByType(annoType));
   }
 }

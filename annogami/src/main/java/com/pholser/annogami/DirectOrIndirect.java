@@ -2,7 +2,6 @@ package com.pholser.annogami;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
-import java.util.Arrays;
 import java.util.List;
 
 public final class DirectOrIndirect {
@@ -13,6 +12,6 @@ public final class DirectOrIndirect {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return Arrays.asList(target.getDeclaredAnnotationsByType(annoType));
+    return List.of(target.getDeclaredAnnotationsByType(annoType));
   }
 }
