@@ -4,14 +4,14 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.util.Optional;
 
-public final class Direct {
-  Direct() {
+public final class Present {
+  Present() {
   }
 
   public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return Optional.ofNullable(target.getDeclaredAnnotation(annoType));
+    return Optional.ofNullable(target.getAnnotation(annoType));
   }
 }
