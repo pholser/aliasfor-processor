@@ -12,6 +12,6 @@ public final class Associated {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return List.of(target.getAnnotationsByType(annoType));
+    return List.of(Sources.PRESENT.byType(annoType, target));
   }
 }

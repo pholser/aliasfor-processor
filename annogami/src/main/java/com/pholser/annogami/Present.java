@@ -13,10 +13,10 @@ public final class Present {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return Optional.ofNullable(target.getAnnotation(annoType));
+    return Optional.ofNullable(Sources.PRESENT.one(annoType, target));
   }
 
   public List<Annotation> all(AnnotatedElement target) {
-    return List.of(target.getAnnotations());
+    return List.of(Sources.PRESENT.all(target));
   }
 }

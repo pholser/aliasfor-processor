@@ -13,10 +13,10 @@ public final class Direct {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return Optional.ofNullable(target.getDeclaredAnnotation(annoType));
+    return Optional.ofNullable(Sources.DECLARED.one(annoType, target));
   }
 
   public List<Annotation> all(AnnotatedElement target) {
-    return List.of(target.getDeclaredAnnotations());
+    return List.of(Sources.DECLARED.all(target));
   }
 }

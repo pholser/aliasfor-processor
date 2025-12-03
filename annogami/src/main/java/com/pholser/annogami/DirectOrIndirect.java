@@ -12,6 +12,6 @@ public final class DirectOrIndirect {
     Class<A> annoType,
     AnnotatedElement target) {
 
-    return List.of(target.getDeclaredAnnotationsByType(annoType));
+    return List.of(Sources.DECLARED.byType(annoType, target));
   }
 }
