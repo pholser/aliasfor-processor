@@ -4,6 +4,7 @@ import com.pholser.annogami.AnnotationAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
@@ -85,5 +86,29 @@ class DirectPresenceOnClassTest {
   @Test void missesContainerAnnotationOfAssociated() {
     DIRECT.find(Ds.class, Derived.class)
       .ifPresent(AnnotationAssertions::falseFind);
+  }
+
+  @Test void findsAll() {
+    assertThat(DIRECT.all(AHaver.class))
+      .hasSize(1)
+      .allSatisfy(a -> assertThat(a.annotationType()).isEqualTo(A.class));
+  }
+
+  @Test void findsAllContainerButNotRepeated() {
+    assertThat(DIRECT.all(ManyBHaver.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactly(Bs.class.getName())
+      .doesNotContain(B.class.getName());
+  }
+
+  @Test void findsAllDeclaredAnnotationsOnBaseIncludingInheritedContainer() {
+    assertThat(DIRECT.all(Base.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactlyInAnyOrder(C.class.getName(), Ds.class.getName())
+      .doesNotContain(D.class.getName());
+  }
+
+  @Test void missesAllInheritedAnnotationsOnSubclass() {
+    assertThat(DIRECT.all(Derived.class)).isEmpty();
   }
 }

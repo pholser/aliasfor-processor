@@ -129,4 +129,36 @@ class PresentOnClassTest {
       .extracting(D::value)
       .containsExactlyInAnyOrder(7, 8);
   }
+
+  @Test void findsAllAnnotations() {
+    assertThat(PRESENT.all(AHaver.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactlyInAnyOrder(A.class.getName());
+  }
+
+  @Test void findsAllRepeatableContainerNotRepeatableElements() {
+    assertThat(PRESENT.all(ManyBHaver.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactly(Bs.class.getName())
+      .doesNotContain(B.class.getName());
+  }
+
+  @Test void findsAllInheritedNonRepeatable() {
+    assertThat(PRESENT.all(CDerived.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactly(C.class.getName());
+  }
+
+  @Test void missesAllNonInheritedOnSubclass() {
+    assertThat(PRESENT.all(ENonInheritedDerived.class))
+      .extracting(a -> a.annotationType().getName())
+      .doesNotContain(E.class.getName());
+  }
+
+  @Test void findsAllInheritedContainerOnSubclassWhenContainerIsInherited() {
+    assertThat(PRESENT.all(DDerived.class))
+      .extracting(a -> a.annotationType().getName())
+      .containsExactly(Ds.class.getName())
+      .doesNotContain(D.class.getName());
+  }
 }
