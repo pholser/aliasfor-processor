@@ -32,7 +32,7 @@ class MetaPresentOnClassTest {
 
   @Test void findsMetaPresentOnClass() {
     A a =
-      META_PRESENT.findFirst(A.class, AHaverViaMeta.class)
+      META_PRESENT.find(A.class, AHaverViaMeta.class)
         .orElseGet(Assertions::fail);
 
     assertThat(a.value()).isEqualTo(3);
@@ -40,7 +40,7 @@ class MetaPresentOnClassTest {
 
   @Test void findsThroughInheritedSeedOnSubclass() {
     D d =
-      META_PRESENT.findFirst(D.class, DDerived.class)
+      META_PRESENT.find(D.class, DDerived.class)
         .orElseGet(Assertions::fail);
 
     assertThat(d.value()).isEqualTo(9);

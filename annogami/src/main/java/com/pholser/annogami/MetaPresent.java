@@ -8,12 +8,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class MetaPresent {
+public final class MetaPresent implements SingleByType, All {
   private final MetaWalker walker =
     new BreadthFirstMetaWalker(MetaWalkConfig.defaultsPresentStart());
   private final AnnotationSource source = Sources.PRESENT;
 
-  public <A extends Annotation> Optional<A> findFirst(
+  @Override public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
@@ -26,7 +26,7 @@ public final class MetaPresent {
       .findFirst();
   }
 
-  public List<Annotation> all(AnnotatedElement target) {
+  @Override public List<Annotation> all(AnnotatedElement target) {
     Objects.requireNonNull(target, "target");
 
     List<Annotation> results = new ArrayList<>();

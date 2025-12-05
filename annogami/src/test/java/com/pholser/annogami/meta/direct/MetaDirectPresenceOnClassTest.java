@@ -111,14 +111,14 @@ class MetaDirectPresenceOnClassTest {
 
   @Test void findsMetaPresentOnClass() {
     A a =
-      META_DIRECT.findFirst(A.class, AHaverViaMeta.class)
+      META_DIRECT.find(A.class, AHaverViaMeta.class)
         .orElseGet(Assertions::fail);
 
     assertThat(a.value()).isEqualTo(3);
   }
 
   @Test void missesInheritedSeedBecauseDeclaredStartDoesNotSeeIt() {
-    META_DIRECT.findFirst(C.class, CDerived.class)
+    META_DIRECT.find(C.class, CDerived.class)
       .ifPresent(AnnotationAssertions::falseFind);
   }
 }

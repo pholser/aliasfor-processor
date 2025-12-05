@@ -7,12 +7,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class MetaDirect {
+public final class MetaDirect implements SingleByType, All {
   private final MetaWalker walker =
     new BreadthFirstMetaWalker(MetaWalkConfig.defaultsDeclared());
   private final AnnotationSource source = Sources.DECLARED;
 
-  public <A extends Annotation> Optional<A> findFirst(
+  @Override public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
@@ -25,7 +25,7 @@ public final class MetaDirect {
       .findFirst();
   }
 
-  public List<Annotation> all(AnnotatedElement target) {
+  @Override public List<Annotation> all(AnnotatedElement target) {
     Objects.requireNonNull(target, "target");
 
     List<Annotation> results = new ArrayList<>();

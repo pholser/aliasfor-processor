@@ -5,18 +5,18 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 import java.util.Optional;
 
-public final class Direct {
+public final class Direct implements SingleByType, All {
   Direct() {
   }
 
-  public <A extends Annotation> Optional<A> find(
+  @Override public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
     return Optional.ofNullable(Sources.DECLARED.one(annoType, target));
   }
 
-  public List<Annotation> all(AnnotatedElement target) {
+  @Override public List<Annotation> all(AnnotatedElement target) {
     return List.of(Sources.DECLARED.all(target));
   }
 }
