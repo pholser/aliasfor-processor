@@ -4,7 +4,6 @@ import com.pholser.annogami.AnnotationAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
@@ -67,8 +66,9 @@ class DirectPresenceOnClassTest {
   }
 
   @Test void findsContainerAnnotationOfIndirectlyPresent() {
-    Bs bs = DIRECT.find(Bs.class, ManyBHaver.class)
-      .orElseGet(Assertions::fail);
+    Bs bs =
+      DIRECT.find(Bs.class, ManyBHaver.class)
+        .orElseGet(Assertions::fail);
 
     assertThat(bs.value()).hasSize(2);
   }
