@@ -12,13 +12,13 @@ record StartVisit(AnnotatedElement element) implements MetaVisit {
 }
 
 record TypeVisit(
-  Class<? extends Annotation> annoType,
+  Class<? extends Annotation> type,
   int depth,
   List<Class<? extends Annotation>> path,
   Annotation via)
   implements MetaVisit {
 
   @Override public AnnotatedElement element() {
-    return annoType;
+    return type;
   }
 }

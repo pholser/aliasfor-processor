@@ -5,7 +5,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 import java.util.Optional;
 
-public final class Direct implements SingleByType, All {
+public final class Direct implements Single, All {
   Direct() {
   }
 

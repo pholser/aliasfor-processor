@@ -43,7 +43,7 @@ final class BreadthFirstMetaWalker implements MetaWalker {
 
     while (!queue.isEmpty()) {
       TypeVisit visit = queue.removeFirst();
-      Class<? extends Annotation> type = visit.annoType();
+      Class<? extends Annotation> type = visit.type();
 
       if (config.shouldIncludeInResults().test(type)) {
         out.add(visit);

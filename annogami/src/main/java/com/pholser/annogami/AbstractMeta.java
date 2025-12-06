@@ -1,5 +1,7 @@
 package com.pholser.annogami;
 
+import java.util.Objects;
+
 sealed abstract class AbstractMeta
   permits MetaSingleAll, MetaAllByType {
 
@@ -7,7 +9,7 @@ sealed abstract class AbstractMeta
   protected final AnnotationSource source;
 
   protected AbstractMeta(MetaWalker walker, AnnotationSource source) {
-    this.walker = walker;
-    this.source = source;
+    this.walker = Objects.requireNonNull(walker);
+    this.source = Objects.requireNonNull(source);
   }
 }

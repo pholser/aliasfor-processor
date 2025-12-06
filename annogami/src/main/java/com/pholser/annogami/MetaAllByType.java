@@ -20,7 +20,7 @@ abstract sealed class MetaAllByType
     Class<A> annoType,
     AnnotatedElement target) {
 
-    Objects.requireNonNull(annoType, "annoType");
+    Objects.requireNonNull(annoType, "type");
     Objects.requireNonNull(target, "target");
 
     List<A> results = new ArrayList<>();

@@ -10,7 +10,7 @@ import java.util.Optional;
 
 abstract sealed class MetaSingleAll
   extends AbstractMeta
-  implements SingleByType, All
+  implements Single, All
   permits MetaDirect, MetaPresent {
 
   protected MetaSingleAll(MetaWalker walker, AnnotationSource source) {
@@ -21,7 +21,7 @@ abstract sealed class MetaSingleAll
     Class<A> annoType,
     AnnotatedElement target) {
 
-    Objects.requireNonNull(annoType, "annoType");
+    Objects.requireNonNull(annoType, "type");
     Objects.requireNonNull(target, "target");
 
     return walker.walk(target)
