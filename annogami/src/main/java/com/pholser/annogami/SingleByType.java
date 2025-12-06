@@ -5,7 +5,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.Optional;
 
 public sealed interface SingleByType
-  permits Direct, Present, MetaDirect, MetaPresent {
+  permits Direct, Present, MetaSingleAll {
 
   <A extends Annotation> Optional<A> find(
     Class<A> annoType,

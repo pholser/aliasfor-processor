@@ -5,7 +5,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 
 public sealed interface All
-  permits Direct, Present, MetaDirect, MetaPresent {
+  permits Direct, Present, MetaSingleAll {
 
   List<Annotation> all(AnnotatedElement target);
 }

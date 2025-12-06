@@ -4,7 +4,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 
-public final class Associated {
+public final class Associated implements AllByType {
   Associated() {
   }
 

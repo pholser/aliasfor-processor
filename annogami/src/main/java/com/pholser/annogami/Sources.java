@@ -2,7 +2,6 @@ package com.pholser.annogami;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
-import java.util.Objects;
 
 final class Sources {
   private Sources() {

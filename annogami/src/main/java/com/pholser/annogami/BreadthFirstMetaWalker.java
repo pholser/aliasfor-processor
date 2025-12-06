@@ -18,8 +18,7 @@ final class BreadthFirstMetaWalker implements MetaWalker {
     this.config = Objects.requireNonNull(config);
   }
 
-  @Override
-  public Stream<MetaVisit> walk(AnnotatedElement start) {
+  @Override public Stream<MetaVisit> walk(AnnotatedElement start) {
     Objects.requireNonNull(start);
 
     List<MetaVisit> out = new ArrayList<>();

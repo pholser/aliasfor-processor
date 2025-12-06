@@ -4,7 +4,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.util.List;
 
-public final class DirectOrIndirect {
+public final class DirectOrIndirect implements AllByType {
   DirectOrIndirect() {
   }
 
