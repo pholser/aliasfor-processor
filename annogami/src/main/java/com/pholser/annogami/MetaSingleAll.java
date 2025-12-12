@@ -17,7 +17,8 @@ abstract sealed class MetaSingleAll
     super(walker, source);
   }
 
-  @Override public final <A extends Annotation> Optional<A> find(
+  @Override
+  public final <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
@@ -30,7 +31,8 @@ abstract sealed class MetaSingleAll
       .findFirst();
   }
 
-  @Override public final List<Annotation> all(AnnotatedElement target) {
+  @Override
+  public final List<Annotation> all(AnnotatedElement target) {
     Objects.requireNonNull(target, "target");
 
     List<Annotation> results = new ArrayList<>();

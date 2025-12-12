@@ -9,14 +9,16 @@ public final class Direct implements Single, All {
   Direct() {
   }
 
-  @Override public <A extends Annotation> Optional<A> find(
+  @Override
+  public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
     return Optional.ofNullable(Sources.DECLARED.one(annoType, target));
   }
 
-  @Override public List<Annotation> all(AnnotatedElement target) {
+  @Override
+  public List<Annotation> all(AnnotatedElement target) {
     return List.of(Sources.DECLARED.all(target));
   }
 }

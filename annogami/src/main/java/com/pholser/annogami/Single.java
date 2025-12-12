@@ -7,7 +7,6 @@ import java.util.Optional;
 public sealed interface Single
   permits Direct, Present, MetaSingleAll {
 
-  <A extends Annotation> Optional<A> find(
-    Class<A> annoType,
-    AnnotatedElement target);
+  <A extends Annotation>
+  Optional<A> find(Class<A> annoType, AnnotatedElement target);
 }

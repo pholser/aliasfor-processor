@@ -9,14 +9,16 @@ public final class Present implements Single, All {
   Present() {
   }
 
-  @Override public <A extends Annotation> Optional<A> find(
+  @Override
+  public <A extends Annotation> Optional<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 
     return Optional.ofNullable(Sources.PRESENT.one(annoType, target));
   }
 
-  @Override public List<Annotation> all(AnnotatedElement target) {
+  @Override
+  public List<Annotation> all(AnnotatedElement target) {
     return List.of(Sources.PRESENT.all(target));
   }
 }

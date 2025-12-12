@@ -8,7 +8,6 @@ interface AnnotationSource {
 
   <A extends Annotation> A one(Class<A> annoType, AnnotatedElement target);
 
-  <A extends Annotation> A[] byType(
-    Class<A> annoType,
-    AnnotatedElement target);
+  <A extends Annotation>
+  A[] byType(Class<A> annoType, AnnotatedElement target);
 }

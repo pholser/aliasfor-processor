@@ -14,8 +14,4 @@ class MetaWalkFilters {
   public static boolean defaultInclude(Class<? extends Annotation> annoType) {
     return !annoType.getName().startsWith("java.lang.annotation.");
   }
-
-  @interface A { int value(); }
-  @A(1) @interface B { int value(); }
-  @A(2) @interface C { int value(); }
 }

@@ -16,7 +16,8 @@ abstract sealed class MetaAllByType
     super(walker, source);
   }
 
-  @Override public final <A extends Annotation> List<A> find(
+  @Override
+  public final <A extends Annotation> List<A> find(
     Class<A> annoType,
     AnnotatedElement target) {
 

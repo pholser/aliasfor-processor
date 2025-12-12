@@ -7,7 +7,6 @@ import java.util.List;
 public sealed interface AllByType
   permits DirectOrIndirect, Associated, MetaAllByType {
 
-  <A extends Annotation> List<A> find(
-    Class<A> annoType,
-    AnnotatedElement target);
+  <A extends Annotation>
+  List<A> find(Class<A> annoType, AnnotatedElement target);
 }
