@@ -331,7 +331,7 @@ public sealed class AnnotatedPathBuilder
 
     /**
      * Extends the in-progress path from this segment's class to that
-     * field's enclosing method.
+     * class's enclosing method.
      *
      * @return builder segment focused at that method
      * @throws IllegalStateException if this segment's class is not a local
@@ -348,7 +348,7 @@ public sealed class AnnotatedPathBuilder
 
     /**
      * Extends the in-progress path from this segment's class to that
-     * field's enclosing constructor.
+     * class's enclosing constructor.
      *
      * @return builder segment focused at that constructor
      * @throws IllegalStateException if this segment's class is not a local
