@@ -9,4 +9,12 @@ public sealed interface Single
 
   <A extends Annotation>
   Optional<A> find(Class<A> annoType, AnnotatedElement target);
+
+  default <A extends Annotation> Optional<A> find(
+    Class<A> annoType,
+    AnnotatedElement target,
+    Aliasing aliasing) {
+
+    return SegmentResolver.defaults().findFirst(annoType, target, this, aliasing);
+  }
 }
