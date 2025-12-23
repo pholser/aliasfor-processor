@@ -1,6 +1,7 @@
 package com.pholser.annogami;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.IncompleteAnnotationException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -37,6 +38,7 @@ final class SynthesizedAnnotationHandler implements InvocationHandler {
     if (isAnnotationType(m)) {
       return annoType;
     }
+
     if (isObjectMethod(m)) {
       if (isEquals(m)) {
         return handleEquals(proxy, args[0]);
@@ -47,6 +49,8 @@ final class SynthesizedAnnotationHandler implements InvocationHandler {
       if (isToString(m)) {
         return handleToString();
       }
+
+      throw new UnsupportedOperationException("Unsupported Object method: " + m);
     }
 
     return valueOf(m);
@@ -74,7 +78,17 @@ final class SynthesizedAnnotationHandler implements InvocationHandler {
 
   private Object valueOf(Method m) {
     String n = m.getName();
-    return overrides.containsKey(n) ? overrides.get(n) : m.getDefaultValue();
+
+    if (overrides.containsKey(n)) {
+      return overrides.get(n);
+    }
+
+    Object def = m.getDefaultValue();
+    if (def != null) {
+      return def;
+    }
+
+    throw new IncompleteAnnotationException(annoType, n);
   }
 
   private boolean handleEquals(Object proxy, Object other) throws Exception {
