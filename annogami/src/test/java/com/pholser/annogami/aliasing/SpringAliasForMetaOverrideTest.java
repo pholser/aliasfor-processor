@@ -8,6 +8,7 @@ import org.springframework.core.annotation.AliasFor;
 
 import java.lang.annotation.Retention;
 
+import static com.pholser.annogami.Presences.META_DIRECT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,8 +26,7 @@ class SpringAliasForMetaOverrideTest {
 
   @Test void findsValueFromComposedAttribute() {
     Base b =
-      Presences.META_DIRECT
-        .find(Base.class, Target.class, Aliasing.spring())
+      META_DIRECT.find(Base.class, Target.class, Aliasing.spring())
         .orElseGet(Assertions::fail);
 
     assertThat(b.value()).isEqualTo("hello");

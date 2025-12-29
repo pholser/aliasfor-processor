@@ -3,14 +3,26 @@ package com.pholser.annogami;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 final class SpringAliasing implements Aliasing {
   private static final String ALIAS_FOR_FQCN =
     "org.springframework.core.annotation.AliasFor";
+
+  private final
+  ConcurrentMap<Class<? extends Annotation>, IntraAliasModel> intraCache =
+    new ConcurrentHashMap<>();
+
+  private volatile Class<? extends Annotation> aliasForTypeCache;
 
   @Override
   public <A extends Annotation> Optional<A> synthesize(
@@ -18,14 +30,19 @@ final class SpringAliasing implements Aliasing {
     List<Annotation> metaContext) {
 
     Class<? extends Annotation> aliasForType =
-      loadAliasForType(annoType.getClassLoader());
+      aliasForType(annoType.getClassLoader());
     if (aliasForType == null) {
       return Optional.empty();
     }
 
-    var overrides = new LinkedHashMap<String, Object>();
+    Map<String, Object> overridesIntoTarget = new LinkedHashMap<>();
+    Annotation directInstance = null;
 
     for (Annotation meta : metaContext) {
+      if (meta.annotationType() == annoType) {
+        directInstance = meta;
+      }
+
       Class<? extends Annotation> metaType = meta.annotationType();
       for (Method attr : metaType.getDeclaredMethods()) {
         Annotation aliasFor = attr.getAnnotation(aliasForType);
@@ -38,26 +55,39 @@ final class SpringAliasing implements Aliasing {
             String targetAttr = targetAttributeOf(aliasFor);
             Object aliasedValue = invoke(meta, attr);
 
-            overrides.merge(
-              targetAttr,
-              aliasedValue,
-              (a, b) -> {
-                if (!Objects.deepEquals(a, b)) {
-                  throw new IllegalStateException(
-                    "Conflicting values for aliased attribute '" + targetAttr
-                      + "' of @" + annoType.getName() + ": "
-                      + a + " vs " + b);
-                }
-                return a;
-              });
+            mergeFirstWins(
+              overridesIntoTarget, targetAttr, aliasedValue, annoType);
           }
         }
       }
     }
 
-    return overrides.isEmpty()
-      ? Optional.empty()
-      : Optional.of(SynthesizedAnnotations.of(annoType, overrides));
+    if (!overridesIntoTarget.isEmpty()) {
+      return Optional.of(
+        SynthesizedAnnotations.of(annoType, overridesIntoTarget));
+    }
+
+    if (directInstance != null) {
+      var overridesIntra =
+        computeIntraAliasedOverrides(annoType, directInstance, aliasForType);
+      if (!overridesIntra.isEmpty()) {
+        return Optional.of(
+          SynthesizedAnnotations.of(annoType, overridesIntra));
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  private Class<? extends Annotation> aliasForType(ClassLoader loader) {
+    Class<? extends Annotation> cached = aliasForTypeCache;
+    if (cached != null) {
+      return cached;
+    }
+
+    Class<? extends Annotation> loaded = loadAliasForType(loader);
+    aliasForTypeCache = loaded;
+    return loaded;
   }
 
   @SuppressWarnings("unchecked")
@@ -69,6 +99,124 @@ final class SpringAliasing implements Aliasing {
       return k.isAnnotation() ? (Class<? extends Annotation>) k : null;
     } catch (ClassNotFoundException e) {
       return null;
+    }
+  }
+
+  private IntraAliasModel intraModelFor(
+    Class<? extends Annotation> annoType,
+    Class<? extends Annotation> aliasForType) {
+
+    return intraCache.computeIfAbsent(
+      annoType,
+      t -> buildIntraAliasModel(t, aliasForType));
+  }
+
+  private static IntraAliasModel buildIntraAliasModel(
+    Class<? extends Annotation> annoType,
+    Class<? extends Annotation> aliasForType) {
+
+    // Ensure only member methods exist (mirrors what your handler enforces)
+    for (Method m : annoType.getDeclaredMethods()) {
+      if (m.getParameterCount() != 0 || m.getReturnType() == void.class) {
+        throw new IllegalArgumentException("Not an annotation member: " + m);
+      }
+    }
+
+    UnionFind u = new UnionFind();
+    Map<String, Method> members = new HashMap<>();
+
+    for (Method m : annoType.getDeclaredMethods()) {
+      String name = m.getName();
+      members.put(name, m);
+
+      Annotation aliasFor = m.getAnnotation(aliasForType);
+      if (aliasFor != null) {
+        Class<?> targetAnno = targetAnnoTypeOf(aliasFor);
+
+        if (targetAnno == null
+          || targetAnno == Annotation.class
+          || targetAnno == annoType) {
+
+          String targetAttr = targetAttributeOf(aliasFor);
+          u.union(name, targetAttr);
+        }
+      }
+    }
+
+    Map<String, List<String>> groups = new LinkedHashMap<>();
+    List<String> names = new ArrayList<>(members.keySet());
+    names.sort(Comparator.naturalOrder());
+    for (String name : names) {
+      String root = u.find(name);
+      groups.computeIfAbsent(root, r -> new ArrayList<>()).add(name);
+    }
+
+    List<List<String>> aliasGroups =
+      groups.values().stream()
+        .filter(g -> g.size() > 1)
+        .map(List::copyOf)
+        .toList();
+
+    return new IntraAliasModel(members, aliasGroups);
+  }
+
+  private Map<String, Object> computeIntraAliasedOverrides(
+    Class<? extends Annotation> annoType,
+    Annotation instance,
+    Class<? extends Annotation> aliasForType) {
+
+    Map<String, Object> overrides = new LinkedHashMap<>();
+
+    IntraAliasModel model = intraModelFor(annoType, aliasForType);
+    for (List<String> group : model.aliasGroups()) {
+      Object chosen = null;
+      String chosenFrom = null;
+
+      for (String attrName : group) {
+        Method m = model.membersByName().get(attrName);
+
+        Object actual = invoke(instance, m);
+        Object def = m.getDefaultValue();
+
+        if (!Objects.deepEquals(actual, def)) {
+          if (chosenFrom == null) {
+            chosenFrom = attrName;
+            chosen = actual;
+          } else if (!Objects.deepEquals(chosen, actual)) {
+            throw new IllegalStateException(
+              "Conflicting explicit values for aliased attributes on @"
+                + annoType.getName() + ": '" + chosenFrom + "' vs '" + attrName + "'");
+          }
+        }
+      }
+
+      if (chosenFrom != null) {
+        // Apply chosen explicit value as override for ALL members in the group
+        for (String attrName : group) {
+          overrides.put(attrName, chosen);
+        }
+      }
+    }
+
+    return Map.copyOf(overrides);
+  }
+
+  private static void mergeFirstWins(
+    Map<String, Object> into,
+    String key,
+    Object value,
+    Class<? extends Annotation> annoType) {
+
+    if (into.containsKey(key)) {
+      Object existing = into.get(key);
+
+      if (!Objects.deepEquals(existing, value)) {
+        throw new IllegalStateException(
+          "Conflicting values for aliased attribute '" + key + "' of @"
+            + annoType.getName() + ": " + existing + " vs " + value);
+      }
+    } else {
+      into.put(key, value);
     }
   }
 
@@ -120,6 +268,27 @@ final class SpringAliasing implements Aliasing {
       return Optional.of(k.getMethod(name));
     } catch (NoSuchMethodException e) {
       return Optional.empty();
+    }
+  }
+
+  private static final class IntraAliasModel {
+    private final Map<String, Method> membersByName;
+    private final List<List<String>> aliasGroups;
+
+    IntraAliasModel(
+      Map<String, Method> membersByName,
+      List<List<String>> aliasGroups) {
+
+      this.membersByName = Map.copyOf(membersByName);
+      this.aliasGroups = List.copyOf(aliasGroups);
+    }
+
+    Map<String, Method> membersByName() {
+      return membersByName;
+    }
+
+    List<List<String>> aliasGroups() {
+      return aliasGroups;
     }
   }
 }

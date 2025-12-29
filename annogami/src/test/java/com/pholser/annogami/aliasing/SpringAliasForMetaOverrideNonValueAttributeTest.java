@@ -1,16 +1,16 @@
 package com.pholser.annogami.aliasing;
 
 import com.pholser.annogami.Aliasing;
-import com.pholser.annogami.Presences;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AliasFor;
 
 import java.lang.annotation.Retention;
 
+import static com.pholser.annogami.Presences.META_DIRECT;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class SegmentResolverSpringAliasForMetaOverrideNonValueAttributeTest {
+class SpringAliasForMetaOverrideNonValueAttributeTest {
   @Retention(RUNTIME) @interface Base {
     String name() default "default-name";
     int count() default 42;
@@ -26,8 +26,7 @@ class SegmentResolverSpringAliasForMetaOverrideNonValueAttributeTest {
 
   @Test void metaAliasForNonValueAttributeIsApplied() {
     Base base =
-      Presences.META_DIRECT
-        .find(Base.class, Target.class, Aliasing.spring())
+      META_DIRECT.find(Base.class, Target.class, Aliasing.spring())
         .orElseThrow();
 
     assertThat(base.name()).isEqualTo("hello");
