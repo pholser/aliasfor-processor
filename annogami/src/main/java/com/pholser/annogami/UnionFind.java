@@ -22,7 +22,11 @@ final class UnionFind {
     String groupA = find(a);
     String groupB = find(b);
     if (!groupA.equals(groupB)) {
-      parent.put(groupA, groupB);
+      if (groupA.compareTo(groupB) < 0) {
+        parent.put(groupB, groupA);
+      } else {
+        parent.put(groupA, groupB);
+      }
     }
   }
 }

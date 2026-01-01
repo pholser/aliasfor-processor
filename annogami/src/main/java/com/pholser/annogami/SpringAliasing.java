@@ -55,8 +55,14 @@ final class SpringAliasing implements Aliasing {
             String targetAttr = targetAttributeOf(aliasFor);
             Object aliasedValue = invoke(meta, attr);
 
-            mergeFirstWins(
-              overridesIntoTarget, targetAttr, aliasedValue, annoType);
+            Object defaultVal = attr.getDefaultValue();
+            if (!Objects.deepEquals(aliasedValue, defaultVal)) {
+              mergeFirstWins(
+                overridesIntoTarget,
+                targetAttr,
+                aliasedValue,
+                annoType);
+            }
           }
         }
       }
@@ -124,6 +130,7 @@ final class SpringAliasing implements Aliasing {
 
     UnionFind u = new UnionFind();
     Map<String, Method> members = new HashMap<>();
+    Map<AttrOverrideKey, String> firstByOverrideKey = new HashMap<>();
 
     for (Method m : annoType.getDeclaredMethods()) {
       String name = m.getName();
@@ -139,6 +146,17 @@ final class SpringAliasing implements Aliasing {
 
           String targetAttr = targetAttributeOf(aliasFor);
           u.union(name, targetAttr);
+        } else if (targetAnno.isAnnotation()) {
+          String targetAttr = targetAttributeOf(aliasFor);
+          AttrOverrideKey key =
+            new AttrOverrideKey(
+              targetAnno.asSubclass(Annotation.class),
+              targetAttr);
+
+          String first = firstByOverrideKey.putIfAbsent(key, name);
+          if (first != null) {
+            u.union(first, name);
+          }
         }
       }
     }
@@ -221,7 +239,7 @@ final class SpringAliasing implements Aliasing {
   }
 
   private static Class<?> targetAnnoTypeOf(Annotation aliasFor) {
-    return findMethod(aliasFor.annotationType(), "annotation")
+    return findAttrMethod(aliasFor.annotationType(), "annotation")
       .map(m -> (Class<?>) invoke(aliasFor, m))
       .orElse(null);
   }
@@ -246,7 +264,7 @@ final class SpringAliasing implements Aliasing {
   }
 
   private static String readString(Annotation a, String methodName) {
-    return findMethod(a.annotationType(), methodName)
+    return findAttrMethod(a.annotationType(), methodName)
       .map(m -> (String) invoke(a, m))
       .orElse(null);
   }
@@ -263,12 +281,17 @@ final class SpringAliasing implements Aliasing {
     }
   }
 
-  private static Optional<Method> findMethod(Class<?> k, String name) {
+  private static Optional<Method> findAttrMethod(Class<?> k, String name) {
     try {
       return Optional.of(k.getMethod(name));
     } catch (NoSuchMethodException e) {
       return Optional.empty();
     }
+  }
+
+  private record AttrOverrideKey(
+    Class<? extends Annotation> annoType,
+    String attrName) {
   }
 
   private static final class IntraAliasModel {

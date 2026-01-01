@@ -44,7 +44,7 @@ class SpringAliasForIntraAnnotationTest {
     assertThatThrownBy(() ->
       DIRECT.find(Intra.class, TargetConflict.class, Aliasing.spring())
         .orElseGet(Assertions::fail)
-        .value())
-      .isInstanceOf(IllegalStateException.class);
+        .value()
+    ).isInstanceOf(IllegalStateException.class);
   }
 }
