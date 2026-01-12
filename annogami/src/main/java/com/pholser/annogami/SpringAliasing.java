@@ -6,11 +6,13 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -24,6 +26,15 @@ final class SpringAliasing implements Aliasing {
 
   private volatile Class<? extends Annotation> aliasForTypeCache;
 
+  private record Node(Class<? extends Annotation> annoType, String attrName) {
+  }
+
+  // NEW: value-object for implicit intra aliasing (same meta target)
+  private record OverrideKey(
+    Class<? extends Annotation> annotationType,
+    String attributeName) {
+  }
+
   @Override
   public <A extends Annotation> Optional<A> synthesize(
     Class<A> annoType,
@@ -35,34 +46,48 @@ final class SpringAliasing implements Aliasing {
       return Optional.empty();
     }
 
-    Map<String, Object> overridesIntoTarget = new LinkedHashMap<>();
+    // If the requested annotation type appears in the metaContext,
+    // remember an instance.
     Annotation directInstance = null;
-
     for (Annotation meta : metaContext) {
       if (meta.annotationType() == annoType) {
         directInstance = meta;
+        break;
+      }
+    }
+
+    // Always build edges (needed for meta overrides and transitive resolution)
+    Map<Node, Node> edges = buildAliasEdges(metaContext, aliasForType);
+
+    // Phase A: try to synthesize annoType via transitive alias-following.
+    // IMPORTANT: If annoType itself is present in the metaContext, DO NOT
+    // use its own members as sources for transitive resolution.
+    // Intra/implicit-intra rules handle that case (and avoid legal alias-pair
+    // cycles like value <-> name).
+    Map<String, Object> overridesIntoTarget = new LinkedHashMap<>();
+
+    for (Annotation meta : metaContext) {
+      Class<? extends Annotation> metaType = meta.annotationType();
+
+      if (directInstance != null && metaType == annoType) {
+        continue;
       }
 
-      Class<? extends Annotation> metaType = meta.annotationType();
       for (Method attr : metaType.getDeclaredMethods()) {
-        Annotation aliasFor = attr.getAnnotation(aliasForType);
-        if (aliasFor != null) {
-          Class<?> targetAnnoType = targetAnnoTypeOf(aliasFor);
-          if (targetAnnoType != null
-            && targetAnnoType != Annotation.class
-            && targetAnnoType == annoType) {
+        // Only explicit values act as sources for aliasing (ignore defaults)
+        Object actual = invoke(meta, attr);
+        Object def = attr.getDefaultValue();
 
-            String targetAttr = targetAttributeOf(aliasFor);
-            Object aliasedValue = invoke(meta, attr);
+        if (!Objects.deepEquals(actual, def)) {
+          Node start = new Node(metaType, attr.getName());
+          Node terminal = followToTerminal(edges, start);
 
-            Object defaultVal = attr.getDefaultValue();
-            if (!Objects.deepEquals(aliasedValue, defaultVal)) {
-              mergeFirstWins(
-                overridesIntoTarget,
-                targetAttr,
-                aliasedValue,
-                annoType);
-            }
+          if (terminal.annoType() == annoType) {
+            mergeFirstWins(
+              overridesIntoTarget,
+              terminal.attrName(),
+              actual,
+              annoType);
           }
         }
       }
@@ -73,9 +98,12 @@ final class SpringAliasing implements Aliasing {
         SynthesizedAnnotations.of(annoType, overridesIntoTarget));
     }
 
+    // Phase B: if we have an instance of annoType in context, apply
+    // intra/implicit-intra aliasing.
     if (directInstance != null) {
-      var overridesIntra =
+      Map<String, Object> overridesIntra =
         computeIntraAliasedOverrides(annoType, directInstance, aliasForType);
+
       if (!overridesIntra.isEmpty()) {
         return Optional.of(
           SynthesizedAnnotations.of(annoType, overridesIntra));
@@ -83,6 +111,60 @@ final class SpringAliasing implements Aliasing {
     }
 
     return Optional.empty();
+  }
+
+  // build alias edges from all annotation TYPES in the metaContext
+  private static Map<Node, Node> buildAliasEdges(
+    List<Annotation> metaContext,
+    Class<? extends Annotation> aliasForType) {
+
+    Map<Node, Node> edges = new HashMap<>();
+
+    for (Annotation a : metaContext) {
+      Class<? extends Annotation> declaring = a.annotationType();
+
+      for (Method m : declaring.getDeclaredMethods()) {
+        Annotation aliasFor = m.getAnnotation(aliasForType);
+        if (aliasFor != null) {
+          Class<?> targetAnnoRaw = targetAnnoTypeOf(aliasFor);
+
+          @SuppressWarnings("unchecked")
+          Class<? extends Annotation> targetAnno =
+            (targetAnnoRaw == null || targetAnnoRaw == Annotation.class)
+              ? declaring
+              : (Class<? extends Annotation>) targetAnnoRaw;
+
+          String targetAttr = targetAttributeOf(aliasFor);
+
+          Node from = new Node(declaring, m.getName());
+          Node to = new Node(targetAnno, targetAttr);
+
+          edges.put(from, to);
+        }
+      }
+    }
+
+    return edges;
+  }
+
+  // follow alias edges transitively; detect cycles
+  private static Node followToTerminal(Map<Node, Node> edges, Node start) {
+    Node current = start;
+    Set<Node> seen = new HashSet<>();
+
+    while (true) {
+      if (!seen.add(current)) {
+        throw new IllegalStateException(
+          "Detected alias cycle starting at " + start);
+      }
+
+      Node next = edges.get(current);
+      if (next == null) {
+        return current;
+      }
+
+      current = next;
+    }
   }
 
   private Class<? extends Annotation> aliasForType(ClassLoader loader) {
@@ -121,7 +203,6 @@ final class SpringAliasing implements Aliasing {
     Class<? extends Annotation> annoType,
     Class<? extends Annotation> aliasForType) {
 
-    // Ensure only member methods exist (mirrors what your handler enforces)
     for (Method m : annoType.getDeclaredMethods()) {
       if (m.getParameterCount() != 0 || m.getReturnType() == void.class) {
         throw new IllegalArgumentException("Not an annotation member: " + m);
@@ -130,33 +211,43 @@ final class SpringAliasing implements Aliasing {
 
     UnionFind u = new UnionFind();
     Map<String, Method> members = new HashMap<>();
-    Map<AttrOverrideKey, String> firstByOverrideKey = new HashMap<>();
+
+    // for implicit intra aliasing, remember the first member name that
+    // aliases a given meta target
+    Map<OverrideKey, String> firstByOverride = new HashMap<>();
 
     for (Method m : annoType.getDeclaredMethods()) {
       String name = m.getName();
       members.put(name, m);
 
       Annotation aliasFor = m.getAnnotation(aliasForType);
-      if (aliasFor != null) {
-        Class<?> targetAnno = targetAnnoTypeOf(aliasFor);
+      if (aliasFor == null) {
+        continue;
+      }
 
-        if (targetAnno == null
-          || targetAnno == Annotation.class
-          || targetAnno == annoType) {
+      Class<?> targetAnnoRaw = targetAnnoTypeOf(aliasFor);
+      String targetAttr = targetAttributeOf(aliasFor);
 
-          String targetAttr = targetAttributeOf(aliasFor);
-          u.union(name, targetAttr);
-        } else if (targetAnno.isAnnotation()) {
-          String targetAttr = targetAttributeOf(aliasFor);
-          AttrOverrideKey key =
-            new AttrOverrideKey(
-              targetAnno.asSubclass(Annotation.class),
-              targetAttr);
+      // Explicit intra aliasing: @AliasFor("other") etc.
+      if (targetAnnoRaw == null
+        || targetAnnoRaw == Annotation.class
+        || targetAnnoRaw == annoType) {
 
-          String first = firstByOverrideKey.putIfAbsent(key, name);
-          if (first != null) {
-            u.union(first, name);
-          }
+        u.union(name, targetAttr);
+        continue;
+      }
+
+      // Implicit intra aliasing: two members alias same meta target
+      // (e.g., both -> Base.value)
+      if (targetAnnoRaw.isAnnotation()) {
+        @SuppressWarnings("unchecked")
+        Class<? extends Annotation> targetAnno =
+          (Class<? extends Annotation>) targetAnnoRaw;
+
+        OverrideKey key = new OverrideKey(targetAnno, targetAttr);
+        String first = firstByOverride.putIfAbsent(key, name);
+        if (first != null) {
+          u.union(first, name);
         }
       }
     }
@@ -203,13 +294,13 @@ final class SpringAliasing implements Aliasing {
           } else if (!Objects.deepEquals(chosen, actual)) {
             throw new IllegalStateException(
               "Conflicting explicit values for aliased attributes on @"
-                + annoType.getName() + ": '" + chosenFrom + "' vs '" + attrName + "'");
+                + annoType.getName() + ": '" + chosenFrom + "' vs '"
+                + attrName + "'");
           }
         }
       }
 
       if (chosenFrom != null) {
-        // Apply chosen explicit value as override for ALL members in the group
         for (String attrName : group) {
           overrides.put(attrName, chosen);
         }
@@ -239,7 +330,7 @@ final class SpringAliasing implements Aliasing {
   }
 
   private static Class<?> targetAnnoTypeOf(Annotation aliasFor) {
-    return findAttrMethod(aliasFor.annotationType(), "annotation")
+    return findMethod(aliasFor.annotationType(), "annotation")
       .map(m -> (Class<?>) invoke(aliasFor, m))
       .orElse(null);
   }
@@ -251,7 +342,8 @@ final class SpringAliasing implements Aliasing {
     boolean attrSpecified = attribute != null && !attribute.isEmpty();
     boolean valueSpecified = value != null && !value.isEmpty();
     if (attrSpecified && valueSpecified) {
-      throw new IllegalStateException("@AliasFor declares both attribute and value");
+      throw new IllegalStateException(
+        "@AliasFor declares both attribute and value");
     }
 
     if (attrSpecified) {
@@ -264,7 +356,7 @@ final class SpringAliasing implements Aliasing {
   }
 
   private static String readString(Annotation a, String methodName) {
-    return findAttrMethod(a.annotationType(), methodName)
+    return findMethod(a.annotationType(), methodName)
       .map(m -> (String) invoke(a, m))
       .orElse(null);
   }
@@ -274,24 +366,18 @@ final class SpringAliasing implements Aliasing {
       if (!m.canAccess(a)) {
         m.trySetAccessible();
       }
-
       return m.invoke(a);
     } catch (IllegalAccessException | InvocationTargetException e) {
       throw new IllegalStateException(e);
     }
   }
 
-  private static Optional<Method> findAttrMethod(Class<?> k, String name) {
+  private static Optional<Method> findMethod(Class<?> k, String name) {
     try {
       return Optional.of(k.getMethod(name));
     } catch (NoSuchMethodException e) {
       return Optional.empty();
     }
-  }
-
-  private record AttrOverrideKey(
-    Class<? extends Annotation> annoType,
-    String attrName) {
   }
 
   private static final class IntraAliasModel {
