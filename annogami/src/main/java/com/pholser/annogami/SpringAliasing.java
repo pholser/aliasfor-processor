@@ -29,7 +29,6 @@ final class SpringAliasing implements Aliasing {
   private record Node(Class<? extends Annotation> annoType, String attrName) {
   }
 
-  // NEW: value-object for implicit intra aliasing (same meta target)
   private record OverrideKey(
     Class<? extends Annotation> annotationType,
     String attributeName) {
@@ -46,8 +45,6 @@ final class SpringAliasing implements Aliasing {
       return Optional.empty();
     }
 
-    // If the requested annotation type appears in the metaContext,
-    // remember an instance.
     Annotation directInstance = null;
     for (Annotation meta : metaContext) {
       if (meta.annotationType() == annoType) {
@@ -56,14 +53,8 @@ final class SpringAliasing implements Aliasing {
       }
     }
 
-    // Always build edges (needed for meta overrides and transitive resolution)
     Map<Node, Node> edges = buildAliasEdges(metaContext, aliasForType);
 
-    // Phase A: try to synthesize annoType via transitive alias-following.
-    // IMPORTANT: If annoType itself is present in the metaContext, DO NOT
-    // use its own members as sources for transitive resolution.
-    // Intra/implicit-intra rules handle that case (and avoid legal alias-pair
-    // cycles like value <-> name).
     Map<String, Object> overridesIntoTarget = new LinkedHashMap<>();
 
     for (Annotation meta : metaContext) {
@@ -74,7 +65,6 @@ final class SpringAliasing implements Aliasing {
       }
 
       for (Method attr : metaType.getDeclaredMethods()) {
-        // Only explicit values act as sources for aliasing (ignore defaults)
         Object actual = invoke(meta, attr);
         Object def = attr.getDefaultValue();
 
@@ -98,8 +88,6 @@ final class SpringAliasing implements Aliasing {
         SynthesizedAnnotations.of(annoType, overridesIntoTarget));
     }
 
-    // Phase B: if we have an instance of annoType in context, apply
-    // intra/implicit-intra aliasing.
     if (directInstance != null) {
       Map<String, Object> overridesIntra =
         computeIntraAliasedOverrides(annoType, directInstance, aliasForType);
@@ -113,7 +101,6 @@ final class SpringAliasing implements Aliasing {
     return Optional.empty();
   }
 
-  // build alias edges from all annotation TYPES in the metaContext
   private static Map<Node, Node> buildAliasEdges(
     List<Annotation> metaContext,
     Class<? extends Annotation> aliasForType) {
@@ -147,7 +134,6 @@ final class SpringAliasing implements Aliasing {
     return edges;
   }
 
-  // follow alias edges transitively; detect cycles
   private static Node followToTerminal(Map<Node, Node> edges, Node start) {
     Node current = start;
     Set<Node> seen = new HashSet<>();
@@ -212,9 +198,9 @@ final class SpringAliasing implements Aliasing {
     UnionFind u = new UnionFind();
     Map<String, Method> members = new HashMap<>();
 
-    // for implicit intra aliasing, remember the first member name that
-    // aliases a given meta target
     Map<OverrideKey, String> firstByOverride = new HashMap<>();
+
+    Map<String, String> explicitIntraEdges = new HashMap<>();
 
     for (Method m : annoType.getDeclaredMethods()) {
       String name = m.getName();
@@ -228,17 +214,15 @@ final class SpringAliasing implements Aliasing {
       Class<?> targetAnnoRaw = targetAnnoTypeOf(aliasFor);
       String targetAttr = targetAttributeOf(aliasFor);
 
-      // Explicit intra aliasing: @AliasFor("other") etc.
       if (targetAnnoRaw == null
         || targetAnnoRaw == Annotation.class
         || targetAnnoRaw == annoType) {
 
+        explicitIntraEdges.put(name, targetAttr);
         u.union(name, targetAttr);
         continue;
       }
 
-      // Implicit intra aliasing: two members alias same meta target
-      // (e.g., both -> Base.value)
       if (targetAnnoRaw.isAnnotation()) {
         @SuppressWarnings("unchecked")
         Class<? extends Annotation> targetAnno =
@@ -249,6 +233,56 @@ final class SpringAliasing implements Aliasing {
         if (first != null) {
           u.union(first, name);
         }
+      }
+    }
+
+    Set<String> validatedPairs = new HashSet<>();
+
+    for (Map.Entry<String, String> e : explicitIntraEdges.entrySet()) {
+      String from = e.getKey();
+      String to = e.getValue();
+
+      Method fromM = members.get(from);
+      Method toM = members.get(to);
+
+      if (toM == null) {
+        throw new IllegalStateException(
+          "Invalid @AliasFor on @" + annoType.getName() + "." + from
+            + "(): target member '" + to + "' does not exist");
+      }
+
+      String back = explicitIntraEdges.get(to);
+      if (!from.equals(back)) {
+        throw new IllegalStateException(
+          "Non-mirrored @AliasFor (mirror required) on @"
+            + annoType.getName() + ": '" + from + "' aliases '"
+            + to + "' but '" + to + "' does not alias '" + from
+            + "'");
+      }
+
+      String pairKey =
+        from.compareTo(to) <= 0
+          ? (from + "<->" + to)
+          : (to + "<->" + from);
+
+      if (!validatedPairs.add(pairKey)) {
+        continue;
+      }
+
+      if (!fromM.getReturnType().equals(toM.getReturnType())) {
+        throw new IllegalStateException(
+          "Incompatible @AliasFor pair on @" + annoType.getName()
+            + ": '" + from + "' and '" + to
+            + "' must declare the same return type");
+      }
+
+      Object d1 = fromM.getDefaultValue();
+      Object d2 = toM.getDefaultValue();
+      if (!Objects.deepEquals(d1, d2)) {
+        throw new IllegalStateException(
+          "Incompatible @AliasFor pair on @" + annoType.getName()
+            + ": '" + from + "' and '" + to
+            + "' must declare the same default value");
       }
     }
 
@@ -352,6 +386,7 @@ final class SpringAliasing implements Aliasing {
     if (valueSpecified) {
       return value;
     }
+
     return "value";
   }
 

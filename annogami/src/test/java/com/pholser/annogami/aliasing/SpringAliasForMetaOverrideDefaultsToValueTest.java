@@ -1,7 +1,7 @@
 package com.pholser.annogami.aliasing;
 
 import com.pholser.annogami.Aliasing;
-import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AliasFor;
 
