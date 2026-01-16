@@ -3,9 +3,13 @@ package com.pholser.annogami;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 final class SegmentResolver {
   private final MetaWalker walker;
@@ -38,24 +42,31 @@ final class SegmentResolver {
   }
 
   private List<Annotation> buildMetaContext(AnnotatedElement segment) {
-    List<Annotation> context = new ArrayList<>();
+    List<Annotation> result = new ArrayList<>();
+    Set<Class<? extends Annotation>> seen = new HashSet<>();
+    List<Class<? extends Annotation>> queue = new ArrayList<>();
 
     for (Annotation seed : Sources.DECLARED.all(segment)) {
-      context.add(seed);
-
-      // walk meta-annotation types from seed.annotationType(), and include their instances
-      walker.walk(seed.annotationType()).forEach(visit -> {
-        AnnotatedElement el = visit.element();
-        if (el instanceof Class<?> k && k.isAnnotation()) {
-          @SuppressWarnings("unchecked")
-          Class<? extends Annotation> annoType = (Class<? extends Annotation>) k;
-
-          Optional.ofNullable(seed.annotationType().getAnnotation(annoType))
-            .ifPresent(context::add);
-        }
-      });
+      result.add(seed);
+      queue.add(seed.annotationType());
     }
 
-    return List.copyOf(context);
+    for (int i = 0; i < queue.size(); i++) {
+      Class<? extends Annotation> t = queue.get(i);
+
+      if (seen.add(t)) {
+        for (Annotation meta : Sources.DECLARED.all(t)) {
+          Class<? extends Annotation> metaType = meta.annotationType();
+
+          if (!metaType.getName().startsWith("java.lang.annotation.")) {
+            result.add(meta);
+            queue.add(metaType);
+          }
+        }
+      }
+
+    }
+
+    return List.copyOf(result);
   }
 }

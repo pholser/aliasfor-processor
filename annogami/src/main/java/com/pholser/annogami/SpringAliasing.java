@@ -30,8 +30,8 @@ final class SpringAliasing implements Aliasing {
   }
 
   private record OverrideKey(
-    Class<? extends Annotation> annotationType,
-    String attributeName) {
+    Class<? extends Annotation> annoType,
+    String attrName) {
   }
 
   @Override
@@ -60,24 +60,22 @@ final class SpringAliasing implements Aliasing {
     for (Annotation meta : metaContext) {
       Class<? extends Annotation> metaType = meta.annotationType();
 
-      if (directInstance != null && metaType == annoType) {
-        continue;
-      }
+      if (directInstance == null || metaType != annoType) {
+        for (Method attr : metaType.getDeclaredMethods()) {
+          Object actual = invoke(meta, attr);
+          Object def = attr.getDefaultValue();
 
-      for (Method attr : metaType.getDeclaredMethods()) {
-        Object actual = invoke(meta, attr);
-        Object def = attr.getDefaultValue();
+          if (!Objects.deepEquals(actual, def)) {
+            Node start = new Node(metaType, attr.getName());
+            Node terminal = followToTerminal(edges, start);
 
-        if (!Objects.deepEquals(actual, def)) {
-          Node start = new Node(metaType, attr.getName());
-          Node terminal = followToTerminal(edges, start);
-
-          if (terminal.annoType() == annoType) {
-            mergeFirstWins(
-              overridesIntoTarget,
-              terminal.attrName(),
-              actual,
-              annoType);
+            if (terminal.annoType() == annoType) {
+              mergeFirstWins(
+                overridesIntoTarget,
+                terminal.attrName(),
+                actual,
+                annoType);
+            }
           }
         }
       }
@@ -113,15 +111,15 @@ final class SpringAliasing implements Aliasing {
       for (Method m : declaring.getDeclaredMethods()) {
         Annotation aliasFor = m.getAnnotation(aliasForType);
         if (aliasFor != null) {
+          String targetAttr = targetAttributeOf(aliasFor);
           Class<?> targetAnnoRaw = targetAnnoTypeOf(aliasFor);
 
-          @SuppressWarnings("unchecked")
           Class<? extends Annotation> targetAnno =
-            (targetAnnoRaw == null || targetAnnoRaw == Annotation.class)
-              ? declaring
-              : (Class<? extends Annotation>) targetAnnoRaw;
-
-          String targetAttr = targetAttributeOf(aliasFor);
+            resolveTargetAnno(
+              declaring,
+              targetAttr,
+              targetAnnoRaw,
+              metaContext);
 
           Node from = new Node(declaring, m.getName());
           Node to = new Node(targetAnno, targetAttr);
@@ -132,6 +130,107 @@ final class SpringAliasing implements Aliasing {
     }
 
     return edges;
+  }
+
+  private static Class<? extends Annotation> resolveTargetAnno(
+    Class<? extends Annotation> declaring,
+    String targetAttr,
+    Class<?> targetAnnoRaw,
+    List<Annotation> metaContext) {
+
+    if (targetAnnoRaw != null && targetAnnoRaw != Annotation.class) {
+      @SuppressWarnings("unchecked")
+      Class<? extends Annotation> cast =
+        (Class<? extends Annotation>) targetAnnoRaw;
+      return cast;
+    }
+
+    if (hasMemberNamed(declaring, targetAttr)) {
+      return declaring;
+    }
+
+    List<Class<? extends Annotation>> matches =
+      implicitMetaTargets(declaring, targetAttr, metaContext);
+
+    if (matches.isEmpty()) {
+      throw new IllegalStateException(
+        "Could not resolve implicit @AliasFor target for @"
+          + declaring.getName() + "." + targetAttr + "()");
+    }
+
+    if (matches.size() > 1) {
+      throw new IllegalStateException(
+        "Ambiguous implicit @AliasFor target for @"
+          + declaring.getName() + "." + targetAttr + "(): "
+          + matches);
+    }
+
+    return matches.get(0);
+  }
+
+  private static List<Class<? extends Annotation>> implicitMetaTargets(
+    Class<? extends Annotation> declaring,
+    String targetAttr,
+    List<Annotation> metaContext) {
+
+    List<Class<? extends Annotation>> direct =
+      directMetaAnnotationsWithMember(declaring, targetAttr);
+
+    if (direct.size() <= 1) {
+      return direct;
+    }
+
+    if (metaContext == null || metaContext.isEmpty()) {
+      return direct;
+    }
+
+    Set<Class<? extends Annotation>> ctx = new HashSet<>();
+    for (Annotation a : metaContext) {
+      ctx.add(a.annotationType());
+    }
+
+    List<Class<? extends Annotation>> narrowed = new ArrayList<>();
+    for (Class<? extends Annotation> c : direct) {
+      if (ctx.contains(c)) {
+        narrowed.add(c);
+      }
+    }
+
+    return narrowed.isEmpty() ? direct : narrowed;
+  }
+
+  private static List<Class<? extends Annotation>>
+  directMetaAnnotationsWithMember(
+    Class<? extends Annotation> declaring,
+    String memberName) {
+
+    List<Class<? extends Annotation>> matches = new ArrayList<>();
+
+    for (Annotation meta : declaring.getAnnotations()) {
+      Class<? extends Annotation> mt = meta.annotationType();
+
+      if (mt.getName().startsWith("java.lang.annotation.")) {
+        continue;
+      }
+
+      if (hasMemberNamed(mt, memberName)) {
+        matches.add(mt);
+      }
+    }
+
+    return matches;
+  }
+
+  private static boolean hasMemberNamed(
+    Class<? extends Annotation> anno,
+    String memberName) {
+
+    try {
+      Method m = anno.getDeclaredMethod(memberName);
+      return m.getParameterCount() == 0 && m.getReturnType() != void.class;
+    } catch (NoSuchMethodException e) {
+      return false;
+    }
   }
 
   private static Node followToTerminal(Map<Node, Node> edges, Node start) {
@@ -199,7 +298,6 @@ final class SpringAliasing implements Aliasing {
     Map<String, Method> members = new HashMap<>();
 
     Map<OverrideKey, String> firstByOverride = new HashMap<>();
-
     Map<String, String> explicitIntraEdges = new HashMap<>();
 
     for (Method m : annoType.getDeclaredMethods()) {
