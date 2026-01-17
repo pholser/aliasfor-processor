@@ -35,10 +35,14 @@ final class SegmentResolver {
     Objects.requireNonNull(presence);
     Objects.requireNonNull(aliasing);
 
-    return presence.find(annoType, segment)
-      .map(a ->
-        aliasing.synthesize(annoType, buildMetaContext(segment))
-          .orElse(a));
+    Optional<A> direct = presence.find(annoType, segment);
+    if (direct.isPresent()) {
+      return aliasing.synthesize(annoType, buildMetaContext(segment))
+        .or(() -> direct);
+    }
+
+    List<Annotation> metaContext = buildMetaContext(segment);
+    return aliasing.synthesize(annoType, metaContext);
   }
 
   private List<Annotation> buildMetaContext(AnnotatedElement segment) {

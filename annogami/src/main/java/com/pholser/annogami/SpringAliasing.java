@@ -20,9 +20,8 @@ final class SpringAliasing implements Aliasing {
   private static final String ALIAS_FOR_FQCN =
     "org.springframework.core.annotation.AliasFor";
 
-  private final
-  ConcurrentMap<Class<? extends Annotation>, IntraAliasModel> intraCache =
-    new ConcurrentHashMap<>();
+  private final ConcurrentMap<Class<? extends Annotation>, IntraAliasModel>
+    intraCache = new ConcurrentHashMap<>();
 
   private volatile Class<? extends Annotation> aliasForTypeCache;
 
@@ -150,7 +149,10 @@ final class SpringAliasing implements Aliasing {
     }
 
     List<Class<? extends Annotation>> matches =
-      implicitMetaTargets(declaring, targetAttr, metaContext);
+      implicitMetaTargetsFromContext(
+        declaring,
+        targetAttr,
+        metaContext);
 
     if (matches.isEmpty()) {
       throw new IllegalStateException(
@@ -168,53 +170,21 @@ final class SpringAliasing implements Aliasing {
     return matches.get(0);
   }
 
-  private static List<Class<? extends Annotation>> implicitMetaTargets(
+  private static List<Class<? extends Annotation>> implicitMetaTargetsFromContext(
     Class<? extends Annotation> declaring,
     String targetAttr,
     List<Annotation> metaContext) {
 
-    List<Class<? extends Annotation>> direct =
-      directMetaAnnotationsWithMember(declaring, targetAttr);
-
-    if (direct.size() <= 1) {
-      return direct;
-    }
-
-    if (metaContext == null || metaContext.isEmpty()) {
-      return direct;
-    }
-
-    Set<Class<? extends Annotation>> ctx = new HashSet<>();
-    for (Annotation a : metaContext) {
-      ctx.add(a.annotationType());
-    }
-
-    List<Class<? extends Annotation>> narrowed = new ArrayList<>();
-    for (Class<? extends Annotation> c : direct) {
-      if (ctx.contains(c)) {
-        narrowed.add(c);
-      }
-    }
-
-    return narrowed.isEmpty() ? direct : narrowed;
-  }
-
-  private static List<Class<? extends Annotation>>
-  directMetaAnnotationsWithMember(
-    Class<? extends Annotation> declaring,
-    String memberName) {
-
     List<Class<? extends Annotation>> matches = new ArrayList<>();
 
-    for (Annotation meta : declaring.getAnnotations()) {
-      Class<? extends Annotation> mt = meta.annotationType();
+    for (Annotation a : metaContext) {
+      Class<? extends Annotation> t = a.annotationType();
 
-      if (mt.getName().startsWith("java.lang.annotation.")) {
-        continue;
-      }
+      if (!t.getName().startsWith("java.lang.annotation.")
+        && t != declaring
+        && hasMemberNamed(t, targetAttr)) {
 
-      if (hasMemberNamed(mt, memberName)) {
-        matches.add(mt);
+        matches.add(t);
       }
     }
 
