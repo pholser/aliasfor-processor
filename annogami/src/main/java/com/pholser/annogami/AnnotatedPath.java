@@ -24,11 +24,11 @@ public final class AnnotatedPath {
     return Collections.emptyList();
   }
 
-  public <A extends Annotation> Optional<A> find(
+  public <A extends Annotation> List<A> find(
     Class<A> annoType,
     AllByType detector) {
 
-    return Optional.empty();
+    return Collections.emptyList();
   }
 
   /**
