@@ -13,6 +13,8 @@ abstract sealed class MetaSingleAll
   implements Single, All
   permits MetaDirect, MetaPresent {
 
+  private final SegmentResolver resolver = SegmentResolver.defaults();
+
   protected MetaSingleAll(MetaWalker walker, AnnotationSource source) {
     super(walker, source);
   }
@@ -40,5 +42,16 @@ abstract sealed class MetaSingleAll
       Collections.addAll(results, source.all(v.element())));
 
     return List.copyOf(results);
+  }
+
+  @Override
+  public final List<Annotation> all(
+    AnnotatedElement target,
+    Aliasing aliasing) {
+
+    Objects.requireNonNull(target, "target");
+    Objects.requireNonNull(aliasing, "aliasing");
+
+    return resolver.all(target, all(target), aliasing);
   }
 }

@@ -43,6 +43,27 @@ final class SegmentResolver {
     return aliasing.synthesize(annoType, metaContext);
   }
 
+  List<Annotation> all(
+    AnnotatedElement segment,
+    List<Annotation> base,
+    Aliasing aliasing) {
+
+    Objects.requireNonNull(segment, "segment");
+    Objects.requireNonNull(base, "base");
+    Objects.requireNonNull(aliasing, "aliasing");
+
+    List<Annotation> ctx = buildMetaContext(segment);
+
+    List<Annotation> out = new ArrayList<>(base.size());
+    for (Annotation a : base) {
+      Class<? extends Annotation> t = a.annotationType();
+      Optional<? extends Annotation> synth = aliasing.synthesize(t, ctx);
+      out.add(synth.isPresent() ? synth.get() : a);
+    }
+
+    return List.copyOf(out);
+  }
+
   private List<Annotation> buildMetaContext(AnnotatedElement segment) {
     List<Annotation> result = new ArrayList<>();
     Set<Class<? extends Annotation>> seen = new HashSet<>();
@@ -66,7 +87,6 @@ final class SegmentResolver {
           }
         }
       }
-
     }
 
     return List.copyOf(result);

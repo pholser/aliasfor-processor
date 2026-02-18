@@ -267,12 +267,15 @@ final class SpringAliasing implements Aliasing {
     UnionFind u = new UnionFind();
     Map<String, Method> members = new HashMap<>();
 
+    for (Method m : annoType.getDeclaredMethods()) {
+      members.put(m.getName(), m);
+    }
+
     Map<OverrideKey, String> firstByOverride = new HashMap<>();
     Map<String, String> explicitIntraEdges = new HashMap<>();
 
     for (Method m : annoType.getDeclaredMethods()) {
       String name = m.getName();
-      members.put(name, m);
 
       Annotation aliasFor = m.getAnnotation(aliasForType);
       if (aliasFor == null) {
@@ -282,16 +285,18 @@ final class SpringAliasing implements Aliasing {
       Class<?> targetAnnoRaw = targetAnnoTypeOf(aliasFor);
       String targetAttr = targetAttributeOf(aliasFor);
 
-      if (targetAnnoRaw == null
-        || targetAnnoRaw == Annotation.class
-        || targetAnnoRaw == annoType) {
+      boolean implicitOrSameAnno =
+        targetAnnoRaw == null
+          || targetAnnoRaw == Annotation.class
+          || targetAnnoRaw == annoType;
 
+      if (implicitOrSameAnno && members.containsKey(targetAttr)) {
         explicitIntraEdges.put(name, targetAttr);
         u.union(name, targetAttr);
         continue;
       }
 
-      if (targetAnnoRaw.isAnnotation()) {
+      if (!implicitOrSameAnno && targetAnnoRaw.isAnnotation()) {
         @SuppressWarnings("unchecked")
         Class<? extends Annotation> targetAnno =
           (Class<? extends Annotation>) targetAnnoRaw;
@@ -302,6 +307,7 @@ final class SpringAliasing implements Aliasing {
           u.union(first, name);
         }
       }
+      // else: implicit cross-annotation alias; buildAliasEdges resolves it
     }
 
     Set<String> validatedPairs = new HashSet<>();
