@@ -12,6 +12,8 @@ abstract sealed class MetaAllByType
   implements AllByType
   permits MetaDirectOrIndirect, MetaAssociated {
 
+  private final SegmentResolver resolver = SegmentResolver.defaults();
+
   protected MetaAllByType(MetaWalker walker, AnnotationSource source) {
     super(walker, source);
   }
@@ -29,5 +31,18 @@ abstract sealed class MetaAllByType
       Collections.addAll(results, source.byType(annoType, v.element())));
 
     return List.copyOf(results);
+  }
+
+  @Override
+  public final <A extends Annotation> List<A> find(
+    Class<A> annoType,
+    AnnotatedElement target,
+    Aliasing aliasing) {
+
+    Objects.requireNonNull(annoType, "type");
+    Objects.requireNonNull(target, "target");
+    Objects.requireNonNull(aliasing, "aliasing");
+
+    return resolver.allByType(annoType, target, find(annoType, target), aliasing);
   }
 }
