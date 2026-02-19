@@ -16,6 +16,6 @@ public sealed interface All
 
     Objects.requireNonNull(aliasing, "aliasing");
 
-    return all(target);
+    return SegmentResolver.defaults().all(target, all(target), aliasing);
   }
 }
