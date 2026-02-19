@@ -18,6 +18,6 @@ public sealed interface AllByType
 
     Objects.requireNonNull(aliasing, "aliasing");
 
-    return find(annoType, target);
+    return SegmentResolver.defaults().allByType(annoType, target, find(annoType, target), aliasing);
   }
 }
