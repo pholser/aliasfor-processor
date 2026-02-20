@@ -13,10 +13,11 @@ abstract sealed class MetaSingleAll
   implements Single, All
   permits MetaDirect, MetaPresent {
 
-  private final SegmentResolver resolver = SegmentResolver.defaults();
+  private final SegmentResolver resolver;
 
   protected MetaSingleAll(MetaWalker walker, AnnotationSource source) {
     super(walker, source);
+    this.resolver = SegmentResolver.withSeedSource(source);
   }
 
   @Override

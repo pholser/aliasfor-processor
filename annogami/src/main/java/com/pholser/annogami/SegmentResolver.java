@@ -11,15 +11,23 @@ import java.util.Set;
 
 final class SegmentResolver {
   private final MetaWalker walker;
+  private final AnnotationSource seedSource;
 
-  private SegmentResolver(MetaWalker walker) {
+  private SegmentResolver(MetaWalker walker, AnnotationSource seedSource) {
     this.walker = walker;
+    this.seedSource = seedSource;
   }
 
   static SegmentResolver defaults() {
     return new SegmentResolver(
-      new BreadthFirstMetaWalker(
-        MetaWalkConfig.defaultsDeclared()));
+      new BreadthFirstMetaWalker(MetaWalkConfig.defaultsDeclared()),
+      Sources.DECLARED);
+  }
+
+  static SegmentResolver withSeedSource(AnnotationSource seedSource) {
+    return new SegmentResolver(
+      new BreadthFirstMetaWalker(MetaWalkConfig.defaultsDeclared()),
+      seedSource);
   }
 
   <A extends Annotation> Optional<A> findFirst(
@@ -91,7 +99,7 @@ final class SegmentResolver {
     Set<Class<? extends Annotation>> seen = new HashSet<>();
     List<Class<? extends Annotation>> queue = new ArrayList<>();
 
-    for (Annotation seed : Sources.DECLARED.all(segment)) {
+    for (Annotation seed : seedSource.all(segment)) {
       result.add(seed);
       queue.add(seed.annotationType());
     }

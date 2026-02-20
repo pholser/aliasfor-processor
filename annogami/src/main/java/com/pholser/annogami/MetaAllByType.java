@@ -12,10 +12,11 @@ abstract sealed class MetaAllByType
   implements AllByType
   permits MetaDirectOrIndirect, MetaAssociated {
 
-  private final SegmentResolver resolver = SegmentResolver.defaults();
+  private final SegmentResolver resolver;
 
   protected MetaAllByType(MetaWalker walker, AnnotationSource source) {
     super(walker, source);
+    this.resolver = SegmentResolver.withSeedSource(source);
   }
 
   @Override
