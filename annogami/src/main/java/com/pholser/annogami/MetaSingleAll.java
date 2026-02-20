@@ -35,6 +35,19 @@ abstract sealed class MetaSingleAll
   }
 
   @Override
+  public final <A extends Annotation> Optional<A> find(
+    Class<A> annoType,
+    AnnotatedElement target,
+    Aliasing aliasing) {
+
+    Objects.requireNonNull(annoType, "type");
+    Objects.requireNonNull(target, "target");
+    Objects.requireNonNull(aliasing, "aliasing");
+
+    return resolver.findFirst(annoType, target, this, aliasing);
+  }
+
+  @Override
   public final List<Annotation> all(AnnotatedElement target) {
     Objects.requireNonNull(target, "target");
 
